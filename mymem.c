@@ -10,7 +10,7 @@
  * You may change this to fit your implementation.
  */
 
-struct memoryList
+struct memoryList //This is a node
 {
   // doubly-linked list
   struct memoryList *last;
@@ -29,7 +29,7 @@ size_t mySize;
 void *myMemory = NULL;
 
 static struct memoryList *head;
-static struct memoryList *next;
+static struct memoryList *current; //Only used for next fit strategy.
 
 
 /* initmem must be called prior to mymalloc and myfree.
@@ -61,6 +61,9 @@ void initmem(strategies strategy, size_t sz)
 	myMemory = malloc(sz);
 	
 	/* TODO: Initialize memory management structure. */
+	struct memoryList node = {NULL, NULL, sz, 0, myMemory};
+	head = &node;
+	current = &node;
 
 
 }
@@ -207,11 +210,26 @@ strategies strategyFromString(char * strategy)
  * be used in tests, but you may find them useful for debugging.
  */
 
+void printNode(struct memoryList *node)
+{
+    printf("Node:\nNext: %p\nLast: %p\nSize: %d\nAlloc: %d\nPtr: %p\n",node->next,node->last,node->size,node->alloc,node->ptr);
+}
+
 /* Use this function to print out the current contents of memory. */
 void print_memory()
 {
-	return;
+    struct memoryList *currentNode = head;
+    while (currentNode != NULL){
+        //Print the node
+        printNode(currentNode);
+        //update
+        currentNode = currentNode->next;
+    }
+
+    return;
 }
+
+
 
 /* Use this function to track memory allocation performance.  
  * This function does not depend on your implementation, 
@@ -252,5 +270,17 @@ void try_mymem(int argc, char **argv) {
 	
 	print_memory();
 	print_memory_status();
-	
+
+
+}
+
+//Utility functions
+
+void insertNodeAfter(struct memoryList *oldNode, struct memoryList *newNode ){
+    //Inserts node, after given node.
+    //Do not care about memory
+    newNode->next = oldNode->next;
+    newNode->last = oldNode;
+    oldNode->next = newNode;
+
 }
