@@ -6,6 +6,8 @@
 #include <time.h>
 
 
+
+
 /* The main structure for implementing memory allocation.
  * You may change this to fit your implementation.
  */
@@ -16,11 +18,14 @@ struct memoryList //This is a node
   struct memoryList *last;
   struct memoryList *next;
 
-  int size;            // How many bytes in this block?
+  size_t size;         // How many bytes in this block?
   char alloc;          // 1 if this block is allocated,
                        // 0 if this block is free.
   void *ptr;           // location of block in memory pool.
 };
+
+void malloc_first(size_t requested);
+void printNode(struct memoryList *node);
 
 strategies myStrategy = NotSet;    // Current strategy
 
@@ -51,21 +56,21 @@ void initmem(strategies strategy, size_t sz)
 	myStrategy = strategy;
 
 	/* all implementations will need an actual block of memory to use */
+	printf("Initing mem with size %ld\n",sz);
 	mySize = sz;
 
 	if (myMemory != NULL) free(myMemory); /* in case this is not the first time initmem2 is called */
 
 	/* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
 
-
 	myMemory = malloc(sz);
-	
+
 	/* TODO: Initialize memory management structure. */
 	struct memoryList node = {NULL, NULL, sz, 0, myMemory};
 	head = &node;
 	current = &node;
-
-
+	printf("Printing head from initmem()\n");
+	printNode(head);
 }
 
 /* Allocate a block of memory with the requested size.
@@ -76,13 +81,21 @@ void initmem(strategies strategy, size_t sz)
 
 void *mymalloc(size_t requested)
 {
-	assert((int)myStrategy > 0);
+    printf("\n\nRequested a size of %ld\n",requested);
+    printf("Printing head\n");
+    printNode(head);
+
+    assert((int)myStrategy > 0);
 	
 	switch (myStrategy)
 	  {
 	  case NotSet: 
 	            return NULL;
 	  case First:
+          print_memory();
+          printf("----------------------------------------------------------------");
+	      malloc_first(requested);
+	      print_memory();
 	            return NULL;
 	  case Best:
 	            return NULL;
@@ -212,7 +225,7 @@ strategies strategyFromString(char * strategy)
 
 void printNode(struct memoryList *node)
 {
-    printf("Node:\nNext: %p\nLast: %p\nSize: %d\nAlloc: %d\nPtr: %p\n",node->next,node->last,node->size,node->alloc,node->ptr);
+    printf("Node{\nNext: %p\nLast: %p\nSize: %ld\nAlloc: %d\nPtr: %p\n}\n",node->next,node->last,node->size,node->alloc,node->ptr);
 }
 
 /* Use this function to print out the current contents of memory. */
@@ -274,13 +287,64 @@ void try_mymem(int argc, char **argv) {
 
 }
 
-//Utility functions
-
+//------------------------Utility functions---------------------------------
+/**
+Inserts node, after given node.
+Doesnt change memory allocation.
+ */
 void insertNodeAfter(struct memoryList *oldNode, struct memoryList *newNode ){
-    //Inserts node, after given node.
-    //Do not care about memory
     newNode->next = oldNode->next;
     newNode->last = oldNode;
     oldNode->next = newNode;
+}
 
+void removeNode(struct memoryList *node){
+	struct memoryList *myLast = node->last;
+	struct memoryList *myNext = node->next;
+
+	//Make last point to next
+	if (myLast){ //NULL pointer check
+    	myLast->next = myNext;
+	}
+
+	//Make next point to last
+	if (myNext){ //NULL pointer check
+    	myNext->last = myLast;
+	}
+}
+
+void allocOnNode(struct memoryList *node, size_t requested){
+    if (node->size == requested){ //If size fits excactly
+        node->alloc = 1;
+    } else { //requested < node->size
+        //Create new node for remaining space
+        size_t remainingSize = node->size - requested;
+        void *remainingMemory = malloc(remainingSize);
+        struct memoryList remainingNode = {NULL, NULL, remainingSize, 0, remainingMemory};
+        node->size = remainingSize;
+        insertNodeAfter(node,&remainingNode);
+
+        //Update node
+        free(node->ptr);
+        node->ptr = malloc(requested);
+        node->alloc = 1;
+        node->size = requested;
+    }
+}
+
+//-------------------Malloc functions--------------------------------------
+void malloc_first(size_t requested){
+    struct memoryList *node = head;
+
+    while (node)
+    {
+        //If node is free and is big enough
+        int isFree = node->alloc == 0;
+        int isBigEnough = node->size >= requested;
+        if (isFree && isBigEnough){
+            allocOnNode(node,requested);
+            return;
+        }
+        node = node->next;
+    }
 }
