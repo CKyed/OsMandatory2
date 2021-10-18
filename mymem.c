@@ -6,22 +6,20 @@
 #include <time.h>
 
 
-
-
 /* The main structure for implementing memory allocation.
  * You may change this to fit your implementation.
  */
 
 struct memoryList //This is a node
 {
-  // doubly-linked list
-  struct memoryList *last;
-  struct memoryList *next;
+    // doubly-linked list
+    struct memoryList *last;
+    struct memoryList *next;
 
-  size_t size;         // How many bytes in this block?
-  char alloc;          // 1 if this block is allocated,
-                       // 0 if this block is free.
-  void *ptr;           // location of block in memory pool.
+    size_t size;         // How many bytes in this block?
+    char alloc;          // 1 if this block is allocated,
+    // 0 if this block is free.
+    void *ptr;           // location of block in memory pool.
 };
 
 void *malloc_first(size_t requested);
@@ -38,7 +36,7 @@ size_t mySize;
 void *myMemory = NULL;
 
 static struct memoryList *head;
-static struct memoryList *lastFitted; //Only used for next fit strategy.
+static struct memoryList *lastVisited; //Only used for next fit strategy.
 
 
 /* initmem must be called prior to mymalloc and myfree.
@@ -59,15 +57,15 @@ void initmem(strategies strategy, size_t sz)
 {
     myStrategy = strategy;
 
-	/* all implementations will need an actual block of memory to use */
-	printf("Initing mem with size %ld\n",sz);
-	mySize = sz;
+    /* all implementations will need an actual block of memory to use */
+    printf("Initing mem with size %zu\n",sz);
+    mySize = sz;
 
     /* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
     if (head != NULL)
         free(head);
-    if (lastFitted != NULL)
-        free(lastFitted);
+    if (lastVisited != NULL)
+        free(lastVisited);
     if (myMemory != NULL)
         free(myMemory);
 
@@ -81,52 +79,40 @@ void initmem(strategies strategy, size_t sz)
     head->alloc = 0; // It is not yet allocated
     head->ptr = myMemory;
 
-    //For the "next fit" we need to keep track of lastfitted
-    lastFitted = head;
-
-    /* Debug
-	printf("Printing head from initmem()\n");
-	printNode(head);
-    */
+    //For the "next fit" we need to keep track of lastVisited
+    lastVisited = head;
 }
 
 /* Allocate a block of memory with the requested size.
  *  If the requested block is not available, mymalloc returns NULL.
  *  Otherwise, it returns a pointer to the newly allocated block.
- *  Restriction: requested >= 1 
+ *  Restriction: requested >= 1
  */
 
 void *mymalloc(size_t requested)
 {
     /* DEBUG */
-    printf("\n\nRequested a block of size %ld\n",requested);
-    printf("Printing head\n");
-    printNode(head);
-
+    printf("\n\nRequested a block of size %zu\n",requested);
 
     assert((int)myStrategy > 0);
-	void *ptr;
-	switch (myStrategy)
-	  {
-	  case NotSet: 
-	      return NULL;
-	  case First:
-	      /*
-          printf("MEM before alloc----------------------------------------------------------------");
-          print_memory();
-          */
-	      ptr = malloc_first(requested);
-	      printf("MEM after alloc----------------------------------------------------------------");
-	      print_memory();
-	      return ptr;
-	  case Best:
-	      return NULL;
-	  case Worst:
-	      return NULL;
-	  case Next:
-	      return NULL;
-	  }
-	return NULL;
+    void *ptr;
+    switch (myStrategy)
+    {
+        case NotSet:
+            return NULL;
+        case First:
+            ptr = malloc_first(requested);
+            printf("MEM after alloc----------------------------------------------------------------\n");
+            print_memory();
+            return ptr;
+        case Best:
+            return NULL;
+        case Worst:
+            return NULL;
+        case Next:
+            return NULL;
+    }
+    return NULL;
 }
 
 
@@ -152,47 +138,96 @@ void myfree(void* block)
 
 /****** Memory status/property functions ******
  * Implement these functions.
- * Note that when refered to "memory" here, it is meant that the 
- * memory pool this module manages via initmem/mymalloc/myfree. 
+ * Note that when refered to "memory" here, it is meant that the
+ * memory pool this module manages via initmem/mymalloc/myfree.
  */
 
 /* Get the number of contiguous areas of free space in memory. */
 int mem_holes()
 {
-	return 0;
+    int holes = 0;
+    struct memoryList *node = head;
+    while (node){
+        if (node->alloc == 0){
+            holes++;
+        }
+        node = node->next;
+    }
+    return holes;
 }
 
 /* Get the number of bytes allocated */
 int mem_allocated()
 {
-	return 0;
+    int bytesAllocated = 0;
+    struct memoryList *node = head;
+    while (node){
+        if (node->alloc == 1){
+            bytesAllocated += node->size;
+        }
+        node = node->next;
+    }
+    return bytesAllocated;
 }
 
 /* Number of non-allocated bytes */
 int mem_free()
 {
-	return 0;
+    int bytesFree = 0;
+    struct memoryList *node = head;
+    while (node){
+        if (node->alloc == 0){
+            bytesFree += node->size;
+        }
+        node = node->next;
+    }
+    return bytesFree;
 }
 
 /* Number of bytes in the largest contiguous area of unallocated memory */
 int mem_largest_free()
 {
-	return 0;
+    int largestFree = 0;
+    struct memoryList *node = head;
+    while (node){
+        if (node->alloc == 0 && node->size > largestFree){
+            largestFree = node->size;
+        }
+        node = node->next;
+    }
+    return largestFree;
 }
 
 /* Number of free blocks smaller than "size" bytes. */
 int mem_small_free(int size)
 {
-	return 0;
-}       
+    int numOfSmallFree = 0;
+    struct memoryList *node = head;
+    while (node){
+        if (node->alloc == 0 && node->size < size){
+            numOfSmallFree++;
+        }
+        node = node->next;
+    }
+    return numOfSmallFree;
+}
 
 char mem_is_alloc(void *ptr)
 {
-        return 0;
+    struct memoryList *node = head;
+    while (node){
+        if (node->alloc == 1 && node->ptr == ptr){
+            return 1;
+        } else if (node->alloc == 0 && node->ptr == ptr){
+            return 0;
+        }
+        node = node->next;
+    }
+    return 0;
 }
 
-/* 
- * Feel free to use these functions, but do not modify them.  
+/*
+ * Feel free to use these functions, but do not modify them.
  * The test code uses them, but you may find them useful.
  */
 
@@ -200,68 +235,68 @@ char mem_is_alloc(void *ptr)
 //Returns a pointer to the memory pool.
 void *mem_pool()
 {
-	return myMemory;
+    return myMemory;
 }
 
 // Returns the total number of bytes in the memory pool. */
 int mem_total()
 {
-	return mySize;
+    return mySize;
 }
 
 
-// Get string name for a strategy. 
+// Get string name for a strategy.
 char *strategy_name(strategies strategy)
 {
-	switch (strategy)
-	{
-		case Best:
-			return "best";
-		case Worst:
-			return "worst";
-		case First:
-			return "first";
-		case Next:
-			return "next";
-		default:
-			return "unknown";
-	}
+    switch (strategy)
+    {
+        case Best:
+            return "best";
+        case Worst:
+            return "worst";
+        case First:
+            return "first";
+        case Next:
+            return "next";
+        default:
+            return "unknown";
+    }
 }
 
 // Get strategy from name.
 strategies strategyFromString(char * strategy)
 {
-	if (!strcmp(strategy,"best"))
-	{
-		return Best;
-	}
-	else if (!strcmp(strategy,"worst"))
-	{
-		return Worst;
-	}
-	else if (!strcmp(strategy,"first"))
-	{
-		return First;
-	}
-	else if (!strcmp(strategy,"next"))
-	{
-		return Next;
-	}
-	else
-	{
-		return 0;
-	}
+    if (!strcmp(strategy,"best"))
+    {
+        return Best;
+    }
+    else if (!strcmp(strategy,"worst"))
+    {
+        return Worst;
+    }
+    else if (!strcmp(strategy,"first"))
+    {
+        return First;
+    }
+    else if (!strcmp(strategy,"next"))
+    {
+        return Next;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 
-/* 
+/*
  * These functions are for you to modify however you see fit.  These will not
  * be used in tests, but you may find them useful for debugging.
  */
 
 void printNode(struct memoryList *node)
 {
-    printf("Node{\nNext: %p\nLast: %p\nSize: %ld\nAlloc: %d\nPtr: %p\n}\n",node->next,node->last,node->size,node->alloc,node->ptr);
+    printf("Node{\nNext: %p\nLast: %p\nSize: %zu\nAlloc: %d\nPtr: %p\n}\n",node->next,node->last,node->size,node->alloc,node->ptr);
 }
 
 /* Use this function to print out the current contents of memory. */
@@ -280,15 +315,15 @@ void print_memory()
 
 
 
-/* Use this function to track memory allocation performance.  
- * This function does not depend on your implementation, 
+/* Use this function to track memory allocation performance.
+ * This function does not depend on your implementation,
  * but on the functions you wrote above.
- */ 
+ */
 void print_memory_status()
 {
-	printf("%d out of %d bytes allocated.\n",mem_allocated(),mem_total());
-	printf("%d bytes are free in %d holes; maximum allocatable block is %d bytes.\n",mem_free(),mem_holes(),mem_largest_free());
-	printf("Average hole size is %f.\n\n",((float)mem_free())/mem_holes());
+    printf("%d out of %d bytes allocated.\n",mem_allocated(),mem_total());
+    printf("%d bytes are free in %d holes; maximum allocatable block is %d bytes.\n",mem_free(),mem_holes(),mem_largest_free());
+    printf("Average hole size is %f.\n\n",((float)mem_free())/mem_holes());
 }
 
 /* Use this function to see what happens when your malloc and free
@@ -297,35 +332,36 @@ void print_memory_status()
  */
 void try_mymem(int argc, char **argv) {
     strategies strat;
-	void *a, *b, *c, *d, *e;
-	if(argc > 1)
-	  strat = strategyFromString(argv[1]);
-	else
-	  strat = First;
-	
-	
-	/* A simple example.  
-	   Each algorithm should produce a different layout. */
-	
-	initmem(strat,500);
-	
-	a = mymalloc(100);
-	b = mymalloc(100);
-	c = mymalloc(100);
-	myfree(b);
-	d = mymalloc(50);
-	myfree(a);
-	e = mymalloc(25);
-	
-	print_memory();
-	print_memory_status();
+    void *a, *b, *c, *d, *e;
+    if(argc > 1)
+        strat = strategyFromString(argv[1]);
+    else
+        strat = First;
+
+
+    /* A simple example.
+       Each algorithm should produce a different layout. */
+
+    initmem(strat,500);
+
+    a = mymalloc(100);
+    b = mymalloc(100);
+    c = mymalloc(100);
+    myfree(b);
+    d = mymalloc(50);
+    myfree(a);
+    e = mymalloc(25);
+
+    printf("Done with test. Printing memory status\n");
+    print_memory();
+    print_memory_status();
 
 
 }
 
 //------------------------Utility functions---------------------------------
 /**
-Inserts node, after given node.
+Inserts newNode after oldNode
 Doesnt change memory allocation.
  */
 void insertNodeAfter(struct memoryList *oldNode, struct memoryList *newNode ){
@@ -384,26 +420,26 @@ void mergeFreeNodes(struct memoryList *firstNode, struct memoryList *lastNode){
 }
 
 void removeNode(struct memoryList *node){
-	struct memoryList *myLast = node->last;
-	struct memoryList *myNext = node->next;
+    struct memoryList *myLast = node->last;
+    struct memoryList *myNext = node->next;
 
-	//If node is head, make head point to next node
-	if (node == head){
-	    printf("Removing head node\n");
-	    head = head->next;
-	}
+    //If node is head, make head point to next node
+    if (node == head){
+        printf("Removing head node\n");
+        head = head->next;
+    }
 
-	//Make last point to next
-	if (myLast){ //NULL pointer check
-    	myLast->next = myNext;
-	}
+    //Make last point to next
+    if (myLast){ //NULL pointer check
+        myLast->next = myNext;
+    }
 
-	//Make next point to last
-	if (myNext){ //NULL pointer check
-    	myNext->last = myLast;
-	}
+    //Make next point to last
+    if (myNext){ //NULL pointer check
+        myNext->last = myLast;
+    }
 
-	//Free node and it's memory
+    //Free node and it's memory
     free(node->ptr);
     free(node);
 }
@@ -416,12 +452,11 @@ void *allocOnNode(struct memoryList *node, size_t requested){
         size_t remainingSize = node->size - requested;
         void *remainingMemory = malloc(remainingSize);
         struct memoryList *remainingNode = malloc(sizeof(struct memoryList));
-        remainingNode->last = NULL; // No link before head yet
-        remainingNode->next = NULL; // No link after head yet
-        remainingNode->size = remainingSize; // assign it all the space available
-        remainingNode->alloc = 0; // It is not yet allocated
+        remainingNode->last = NULL;
+        remainingNode->next = NULL;
+        remainingNode->size = remainingSize;
+        remainingNode->alloc = 0;
         remainingNode->ptr = remainingMemory;
-
         insertNodeAfter(node,remainingNode);
 
         //Update node
@@ -435,21 +470,19 @@ void *allocOnNode(struct memoryList *node, size_t requested){
 
 //-------------------Malloc functions--------------------------------------
 void *malloc_first(size_t requested){
-    struct memoryList *node = head;
-    printNode(node);
-    printf("\n%p",node); //TODO Find out why this node is empty when head is not (this is the reason why the test stops)
-    printf("\n%p",head);
+    lastVisited = head;
 
-    while (node)
+    while (lastVisited)
     {
-        printf("Looking for a free node");
         //If node is free and is big enough
-        int isFree = node->alloc == 0;
-        int isBigEnough = node->size >= requested;
+        int isFree = lastVisited->alloc == 0;
+        int isBigEnough = lastVisited->size >= requested;
         if (isFree && isBigEnough){
-            return allocOnNode(node,requested);
+            return allocOnNode(lastVisited,requested);
         }
-        node = node->next;
+        lastVisited = lastVisited->next;
     }
+
     return NULL;
 }
+
