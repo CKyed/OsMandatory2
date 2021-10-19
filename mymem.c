@@ -23,6 +23,9 @@ struct memoryList //This is a node
 };
 
 void *malloc_first(size_t requested);
+void *malloc_next(size_t requested);
+void *malloc_best(size_t requested);
+void *malloc_worst(size_t requested);
 void printNode(struct memoryList *node);
 void removeNode(struct memoryList *node);
 void mergeFreeNodes(struct memoryList *firstNode, struct memoryList *lastNode);
@@ -58,10 +61,9 @@ void initmem(strategies strategy, size_t sz)
     myStrategy = strategy;
 
     /* all implementations will need an actual block of memory to use */
-    //printf("Initing mem with size %zu\n",sz);
     mySize = sz;
 
-    /* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
+    /* release any other memory you were using for bookkeeping when doing a re-initialization! */
     if (head != NULL)
         free(head);
     if (lastVisited != NULL)
@@ -69,8 +71,8 @@ void initmem(strategies strategy, size_t sz)
     if (myMemory != NULL)
         free(myMemory);
 
-    /* TODO: Initialize memory management structure. */
-    myMemory = malloc(sz);
+    /* Initialize memory management structure. */
+    myMemory = malloc(sz);//Allocate the memory
 
     head = (struct memoryList *)malloc(sizeof(struct memoryList));
     head->last = NULL; // No link before head yet
@@ -83,36 +85,34 @@ void initmem(strategies strategy, size_t sz)
     lastVisited = head;
 }
 
-/* Allocate a block of memory with the requested size.
- *  If the requested block is not available, mymalloc returns NULL.
- *  Otherwise, it returns a pointer to the newly allocated block.
- *  Restriction: requested >= 1
+/**
+ Allocate a block of memory with the requested size.
+ If the requested block is not available, mymalloc returns NULL.
+ Otherwise, it returns a pointer to the newly allocated block.
+ Restriction: requested >= 1
  */
-
 void *mymalloc(size_t requested)
 {
-    /* DEBUG */
-    //printf("\n\nRequested a block of size %zu\n",requested);
-
     assert((int)myStrategy > 0);
     void *ptr;
     switch (myStrategy)
     {
         case NotSet:
-            return NULL;
+            break;
         case First:
             ptr = malloc_first(requested);
-            //printf("MEM after alloc----------------------------------------------------------------\n");
-            //print_memory();
-            return ptr;
+            break;
         case Best:
-            return NULL;
+            ptr = malloc_best(requested);
+            break;
         case Worst:
-            return NULL;
+            ptr = malloc_worst(requested);
+            break;
         case Next:
-            return NULL;
+            ptr = malloc_next(requested);
+            break;
     }
-    return NULL;
+    return ptr;
 }
 
 
@@ -125,11 +125,7 @@ void myfree(void* block)
     {
         //If node has the correct memory
         if (node->ptr == block){
-            //Remove the node and free it's memory
-            //printf("Removing a block of size: %ld\n",node->size);
             freeNode(node);
-            //printf("MEM after removal----------------------------------------------------------------\n");
-            //print_memory();
             return;
         }
         node = node->next;
@@ -315,9 +311,10 @@ void print_memory()
 
 
 
-/* Use this function to track memory allocation performance.
- * This function does not depend on your implementation,
- * but on the functions you wrote above.
+/**
+ Use this function to track memory allocation performance.
+ This function does not depend on your implementation,
+ but on the functions you wrote above.
  */
 void print_memory_status()
 {
@@ -326,9 +323,10 @@ void print_memory_status()
     printf("Average hole size is %f.\n\n",((float)mem_free())/mem_holes());
 }
 
-/* Use this function to see what happens when your malloc and free
- * implementations are called.  Run "mem -try <args>" to call this function.
- * We have given you a simple example to start.
+/**
+ Use this function to see what happens when your malloc and free
+ implementations are called.  Run "mem -try <args>" to call this function.
+ We have given you a simple example to start.
  */
 void try_mymem(int argc, char **argv) {
     strategies strat;
@@ -336,12 +334,11 @@ void try_mymem(int argc, char **argv) {
     if(argc > 1)
         strat = strategyFromString(argv[1]);
     else
-        strat = First;
+        strat = Worst;
 
 
     /* A simple example.
        Each algorithm should produce a different layout. */
-/*
     initmem(strat,500);
 
     a = mymalloc(100);
@@ -351,18 +348,7 @@ void try_mymem(int argc, char **argv) {
     d = mymalloc(50);
     myfree(a);
     e = mymalloc(25);
-*/
-    void* first;
-    void* second;
-    void* third;
-    int correctThird;
 
-    initmem(strat,100);
-
-    first = mymalloc(10);
-    second = mymalloc(1);
-    myfree(first);
-    third = mymalloc(1);
     printf("Done with test. Printing memory status\n");
     print_memory();
     print_memory_status();
@@ -381,9 +367,9 @@ void insertNodeAfter(struct memoryList *oldNode, struct memoryList *newNode ){
     oldNode->next = newNode;
 }
 
-/*
- The memory that the node is holding should be freed.
- Node should be merged with any surrounding free nodes
+/**
+ The memory that the node is holding is freed.
+ Node is merged with any surrounding free nodes
  */
 void freeNode(struct memoryList *node){
     // Mark that this node is no longer allocated and free it's memory
@@ -392,19 +378,17 @@ void freeNode(struct memoryList *node){
     //Check if it should be merged with "left" neighbor
     int mergeLeft = node->last != NULL && node->last->alloc == 0;
     if (mergeLeft){
-        //printf("Merging nodes %p and %p\n",node,node->last);
         mergeFreeNodes(node->last,node);
     }
 
     //Check if it should be merged with "right" neighbor
     int mergeRight = node->next != NULL && node->next->alloc == 0;
     if (mergeRight){
-        //printf("Merging nodes %p and %p\n",node,node->next);
         mergeFreeNodes(node,node->next);
     }
 }
 
-/*
+/**
  Makes 2 free nodes into 1 free node of total size
  The 2 nodes should be neighbors and should both be free (not allocated)
  */
@@ -428,6 +412,9 @@ void mergeFreeNodes(struct memoryList *firstNode, struct memoryList *lastNode){
     firstNode->size = newSize; //Set new size
 }
 
+/**
+ Removes the node from the list and frees it
+ */
 void removeNode(struct memoryList *node){
     struct memoryList *myLast = node->last;
     struct memoryList *myNext = node->next;
@@ -452,6 +439,10 @@ void removeNode(struct memoryList *node){
     free(node);
 }
 
+/**
+ Either alloc's directly on the node (if size fits excactly)
+ Or splits into two nodes, allocating on the first one
+ */
 void *allocOnNode(struct memoryList *node, size_t requested){
     if (node->size == requested){ //If size fits excactly
         node->alloc = 1;
@@ -476,20 +467,95 @@ void *allocOnNode(struct memoryList *node, size_t requested){
 
 //-------------------Malloc functions--------------------------------------
 void *malloc_first(size_t requested){
-    lastVisited = head;
-
-    while (lastVisited)
+    struct memoryList *node = head;
+    while (node)
     {
         //If node is free and is big enough
-        int isFree = lastVisited->alloc == 0;
-        int isBigEnough = lastVisited->size >= requested;
+        int isFree = node->alloc == 0;
+        int isBigEnough = node->size >= requested;
         if (isFree && isBigEnough){
-            return allocOnNode(lastVisited,requested);
+            lastVisited = node;
+            return allocOnNode(node,requested);
         }
-        lastVisited = lastVisited->next;
+        node = node->next;
     }
 
     return NULL;
 }
 
+void *malloc_best(size_t requested){
+    struct memoryList *node = head;
+    struct memoryList *bestFit = NULL;
 
+    while (node)
+    {
+        //If node is free and fits better than previous
+        int isFree = node->alloc == 0;
+        int isBigEnough = node->size >= requested;
+        int fitsBetter = bestFit == NULL || node->size < bestFit->size;
+        if (isFree && isBigEnough && fitsBetter){
+            bestFit = node;
+        }
+        node = node->next;
+    }
+    if (bestFit == NULL){
+        return NULL;
+    }
+    lastVisited = bestFit;
+    return allocOnNode(bestFit,requested);
+}
+
+
+void *malloc_next(size_t requested){
+    struct memoryList *startNode = lastVisited;//The node that we started on
+    struct memoryList *node = lastVisited;//The node that we use as iterator
+
+    //Start at next node from lastVisited
+    if (node->next == NULL){
+        node = head;
+    } else {
+        node = node->next;
+    }
+
+    int hasLooped = 0;//Tells if we have gone from tail to head already
+    while (node != startNode || !hasLooped) //While we haven't done one whole loop
+    {
+        //If node is free and is big enough
+        int isFree = node->alloc == 0;
+        int isBigEnough = node->size >= requested;
+        if (isFree && isBigEnough){
+            lastVisited = node;
+            return allocOnNode(node,requested);
+        }
+        if (node->next == NULL){
+            node = head;
+            hasLooped = 1;
+        } else {
+            node = node->next;
+        }
+    }
+
+    return NULL;
+}
+
+void *malloc_worst(size_t requested){
+    struct memoryList *node = head;
+    struct memoryList *worstFit = NULL;
+
+    while (node)
+    {
+        //If node is free and fits better than previous
+        int isFree = node->alloc == 0;
+        int isBigEnough = node->size >= requested;
+        int fitsWorse = worstFit == NULL || node->size > worstFit->size;
+        if (isFree && isBigEnough && fitsWorse){
+            worstFit = node;
+        }
+        node = node->next;
+    }
+    if (worstFit == NULL){
+        return NULL;
+    }
+    lastVisited = worstFit;
+    return allocOnNode(worstFit,requested);
+}
