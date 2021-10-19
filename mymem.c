@@ -377,7 +377,6 @@ void insertNodeAfter(struct memoryList *oldNode, struct memoryList *newNode ){
 void freeNode(struct memoryList *node){
     // Mark that this node is no longer allocated and free it's memory
     node->alloc = 0;
-    free(node->ptr);
 
     //Check if it should be merged with "left" neighbor
     int mergeLeft = node->last != NULL && node->last->alloc == 0;
@@ -485,4 +484,3 @@ void *malloc_first(size_t requested){
 
     return NULL;
 }
-
