@@ -30,6 +30,7 @@ void printNode(struct memoryList *node);
 void removeNode(struct memoryList *node);
 void mergeFreeNodes(struct memoryList *firstNode, struct memoryList *lastNode);
 void freeNode(struct memoryList *node);
+void freeNodeAndRightNeighbor(struct memoryList *node);
 
 
 strategies myStrategy = NotSet;    // Current strategy
@@ -65,9 +66,7 @@ void initmem(strategies strategy, size_t sz)
 
     /* release any other memory you were using for bookkeeping when doing a re-initialization! */
     if (head != NULL)
-        free(head);
-    if (lastVisited != NULL)
-        free(lastVisited);
+        freeNodeAndRightNeighbor(head);//This frees all nodes including lastVisited
     if (myMemory != NULL)
         free(myMemory);
 
@@ -85,6 +84,17 @@ void initmem(strategies strategy, size_t sz)
     lastVisited = head;
 }
 
+void freeNodeAndRightNeighbor(struct memoryList *node){
+    //Free right neighbor
+    if (node->next != NULL){
+        freeNodeAndRightNeighbor(node->next);
+    }
+
+    //Free node itself (Not the node->ptr, which is only allocaed in myMemory)
+    free(node);
+    //printf("Freed a node");
+}
+
 /**
  Allocate a block of memory with the requested size.
  If the requested block is not available, mymalloc returns NULL.
@@ -93,6 +103,7 @@ void initmem(strategies strategy, size_t sz)
  */
 void *mymalloc(size_t requested)
 {
+    //printf("Mallocing %ld\n",requested);
     assert((int)myStrategy > 0);
     void *ptr;
     switch (myStrategy)
@@ -339,6 +350,16 @@ void try_mymem(int argc, char **argv) {
 
     /* A simple example.
        Each algorithm should produce a different layout. */
+    initmem(strat,500);
+
+    a = mymalloc(100);
+    b = mymalloc(100);
+    c = mymalloc(100);
+    myfree(b);
+    d = mymalloc(50);
+    myfree(a);
+    e = mymalloc(25);
+
     initmem(strat,500);
 
     a = mymalloc(100);
