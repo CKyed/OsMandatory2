@@ -39,8 +39,10 @@ strategies myStrategy = NotSet;    // Current strategy
 size_t mySize;
 void *myMemory = NULL;
 
-static struct memoryList *head;
-static struct memoryList *lastVisited; //Only used for next fit strategy.
+struct memoryList *head;
+struct memoryList *lastVisited; //Only used for next fit strategy.
+int debugMessages = 0;
+
 
 void initmem(strategies strategy, size_t sz)
 {
@@ -106,8 +108,8 @@ void *mymalloc(size_t requested)
             ptr = malloc_next(requested);
             break;
     }
-    if (ptr == NULL){
-        printf("Didnt find suitable memory in mymalloc()\n");
+    if (ptr == NULL && debugMessages) {
+        printf("Didn't find suitable memory in mymalloc()\n");
     }
     return ptr;
 }
@@ -127,8 +129,9 @@ void myfree(void* block)
         }
         node = node->next;
     }
-
-    printf("Myfree didn't find the node it was looking for");
+    if (debugMessages){
+        printf("Myfree didn't find the node it was looking for\n");
+    }
 }
 
 /****** Memory status/property functions ******
@@ -359,6 +362,9 @@ void insertNodeAfter(struct memoryList *oldNode, struct memoryList *newNode ){
     newNode->next = oldNode->next;
     newNode->last = oldNode;
     oldNode->next = newNode;
+    if (newNode->next){
+        newNode->next->last = newNode;
+    }
 }
 
 /**
@@ -429,13 +435,13 @@ void removeNode(struct memoryList *node){
         printf("Removing head node\n");
         head = head->next;
         if (head == NULL){
-            printf("ERROR in deleting head");
+            printf("ERROR in deleting head\n");
         }
     } else if (node == lastVisited){
         //If node is lastVisited, update to left neighbor, since it will have same right neighbor now
         lastVisited = lastVisited->last;
         if (lastVisited == NULL){
-            printf("ERROR in deleting lastVisited");
+            printf("ERROR in deleting lastVisited\n");
         }
     }
 
@@ -468,7 +474,6 @@ void *allocOnNode(struct memoryList *node, size_t requested){
         struct memoryList *remainingNode = (struct memoryList*) malloc(sizeof(struct memoryList));
         if (remainingNode == NULL){
             printf("MALLOC ERROR!\n)");
-            //exit(123);
             return NULL;
         }
         remainingNode->last = NULL;
