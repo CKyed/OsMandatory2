@@ -28,9 +28,9 @@ void *malloc_best(size_t requested);
 void *malloc_worst(size_t requested);
 void printNode(struct memoryList *node);
 void removeNode(struct memoryList *node);
-void mergeFreeNodes(struct memoryList *firstNode, struct memoryList *lastNode);
+struct memoryList *mergeFreeNodes(struct memoryList *firstNode, struct memoryList *lastNode);
 void freeNode(struct memoryList *node);
-void freeNodeAndRightNeighbor(struct memoryList *node);
+void freeNodeAndRightNeighbors(struct memoryList *node);
 
 
 strategies myStrategy = NotSet;    // Current strategy
@@ -42,21 +42,6 @@ void *myMemory = NULL;
 static struct memoryList *head;
 static struct memoryList *lastVisited; //Only used for next fit strategy.
 
-
-/* initmem must be called prior to mymalloc and myfree.
-
-   initmem may be called more than once in a given exeuction;
-   when this occurs, all memory you previously malloc'ed  *must* be freed,
-   including any existing bookkeeping data.
-
-   strategy must be one of the following:
-		- "best" (best-fit)
-		- "worst" (worst-fit)
-		- "first" (first-fit)
-		- "next" (next-fit)
-   sz specifies the number of bytes that will be available, in total, for all mymalloc requests.
-*/
-
 void initmem(strategies strategy, size_t sz)
 {
     myStrategy = strategy;
@@ -66,7 +51,7 @@ void initmem(strategies strategy, size_t sz)
 
     /* release any other memory you were using for bookkeeping when doing a re-initialization! */
     if (head != NULL)
-        freeNodeAndRightNeighbor(head);//This frees all nodes including lastVisited
+        freeNodeAndRightNeighbors(head);//This frees all nodes including lastVisited
     if (myMemory != NULL)
         free(myMemory);
 
@@ -84,15 +69,14 @@ void initmem(strategies strategy, size_t sz)
     lastVisited = head;
 }
 
-void freeNodeAndRightNeighbor(struct memoryList *node){
-    //Free right neighbor
+void freeNodeAndRightNeighbors(struct memoryList *node){
+    //Free right neighbors
     if (node->next != NULL){
-        freeNodeAndRightNeighbor(node->next);
+        freeNodeAndRightNeighbors(node->next);
     }
 
     //Free node itself (Not the node->ptr, which is only allocaed in myMemory)
     free(node);
-    //printf("Freed a node");
 }
 
 /**
@@ -103,7 +87,6 @@ void freeNodeAndRightNeighbor(struct memoryList *node){
  */
 void *mymalloc(size_t requested)
 {
-    //printf("Mallocing %ld\n",requested);
     assert((int)myStrategy > 0);
     void *ptr;
     switch (myStrategy)
@@ -123,6 +106,9 @@ void *mymalloc(size_t requested)
             ptr = malloc_next(requested);
             break;
     }
+    if (ptr == NULL){
+        printf("Didnt find suitable memory in mymalloc()\n");
+    }
     return ptr;
 }
 
@@ -141,6 +127,8 @@ void myfree(void* block)
         }
         node = node->next;
     }
+
+    printf("Myfree didn't find the node it was looking for");
 }
 
 /****** Memory status/property functions ******
@@ -360,21 +348,6 @@ void try_mymem(int argc, char **argv) {
     myfree(a);
     e = mymalloc(25);
 
-    initmem(strat,500);
-
-    a = mymalloc(100);
-    b = mymalloc(100);
-    c = mymalloc(100);
-    myfree(b);
-    d = mymalloc(50);
-    myfree(a);
-    e = mymalloc(25);
-
-    printf("Done with test. Printing memory status\n");
-    print_memory();
-    print_memory_status();
-
-
 }
 
 //------------------------Utility functions---------------------------------
@@ -389,39 +362,46 @@ void insertNodeAfter(struct memoryList *oldNode, struct memoryList *newNode ){
 }
 
 /**
- The memory that the node is holding is freed.
+ The node is de-alloced.
  Node is merged with any surrounding free nodes
  */
 void freeNode(struct memoryList *node){
-    // Mark that this node is no longer allocated and free it's memory
+    // Mark that this node is no longer allocated
     node->alloc = 0;
 
     //Check if it should be merged with "left" neighbor
     int mergeLeft = node->last != NULL && node->last->alloc == 0;
+    int mergeRight = node->next != NULL && node->next->alloc == 0;
+
     if (mergeLeft){
-        mergeFreeNodes(node->last,node);
+        //Important: Update "node" to be the resulting node of the merge
+        //Otherwise we can't use it for merging to the right
+        node = mergeFreeNodes(node->last,node);
     }
 
     //Check if it should be merged with "right" neighbor
-    int mergeRight = node->next != NULL && node->next->alloc == 0;
     if (mergeRight){
         mergeFreeNodes(node,node->next);
     }
 }
 
+
+
 /**
  Makes 2 free nodes into 1 free node of total size
+ The resulting node is the first/leftmost of the two
  The 2 nodes should be neighbors and should both be free (not allocated)
+ The address of the resulting node is returned
  */
-void mergeFreeNodes(struct memoryList *firstNode, struct memoryList *lastNode){
+struct memoryList *mergeFreeNodes(struct memoryList *firstNode, struct memoryList *lastNode){
     //Assert that firstNode and lastNode are indeed neighbors
     if (firstNode->next != lastNode && lastNode->last != firstNode ){
         printf("Error in mergeFreeNodes(). Nodes are not neighbors");
-        return;
+        return NULL;
     }
     if (firstNode->alloc != 0 && lastNode->alloc != 0){
         printf("Error in mergeFreeNodes(). Nodes are not not free");
-        return;
+        return NULL;
     }
     //Calculate new size
     size_t newSize = firstNode->size + lastNode->size;
@@ -431,6 +411,9 @@ void mergeFreeNodes(struct memoryList *firstNode, struct memoryList *lastNode){
 
     //Update first node (ptr doesn't need to be updated)
     firstNode->size = newSize; //Set new size
+
+    //Return resulting node
+    return firstNode;
 }
 
 /**
@@ -442,9 +425,20 @@ void removeNode(struct memoryList *node){
 
     //If node is head, make head point to next node
     if (node == head){
+        //This should never happen since we always remove the right node when we merge
         printf("Removing head node\n");
         head = head->next;
+        if (head == NULL){
+            printf("ERROR in deleting head");
+        }
+    } else if (node == lastVisited){
+        //If node is lastVisited, update to left neighbor, since it will have same right neighbor now
+        lastVisited = lastVisited->last;
+        if (lastVisited == NULL){
+            printf("ERROR in deleting lastVisited");
+        }
     }
+
 
     //Make last point to next
     if (myLast){ //NULL pointer check
@@ -471,7 +465,12 @@ void *allocOnNode(struct memoryList *node, size_t requested){
         //Create new node for remaining space
         size_t remainingSize = node->size - requested;
         void *remainingMemory = node->ptr + requested;
-        struct memoryList *remainingNode = malloc(sizeof(struct memoryList));
+        struct memoryList *remainingNode = (struct memoryList*) malloc(sizeof(struct memoryList));
+        if (remainingNode == NULL){
+            printf("MALLOC ERROR!\n)");
+            //exit(123);
+            return NULL;
+        }
         remainingNode->last = NULL;
         remainingNode->next = NULL;
         remainingNode->size = remainingSize;
@@ -482,6 +481,7 @@ void *allocOnNode(struct memoryList *node, size_t requested){
         //Update node
         node->alloc = 1;
         node->size = requested;
+
     }
     return node->ptr;
 }
