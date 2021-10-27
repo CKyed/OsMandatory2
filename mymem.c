@@ -53,7 +53,7 @@ void initmem(strategies strategy, size_t sz)
 
     /* release any other memory you were using for bookkeeping when doing a re-initialization! */
     if (head != NULL)
-        freeNodeAndRightNeighbors(head);//This frees all nodes including lastVisited
+        freeNodeAndRightNeighbors(head); //This frees all nodes including lastVisited
     if (myMemory != NULL)
         free(myMemory);
 

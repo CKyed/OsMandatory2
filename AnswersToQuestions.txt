@@ -64,16 +64,41 @@ not in one place.  It is possible to compact the memory, so all the free blocks
 are moved to one large free block.  How would you implement this in the system
 you have built?
 
+It depends on the size of the blocks that needs to be moved. There has to be some free
+space i memory there the block that should be moved can be temporary stored.
+A example: If the block we want to assign is 16 Mb but the largest space is 12 Mb
+and the largest block we currently have in memory is 12 Mb, it would be possible to move all
+the blocks arround. If the largest block we have en memory is 14 Mb, it would not be possible
+since we have no place to temporary store it.
+
 7) If you did implement memory compaction, what changes would you need to make
 in how such a system is invoked (i.e. from a user's perspective)?
 
+
 8) How would you use the system you have built to implement realloc?  (Brief
 explanation; no code)
+allocOnNode can be used to realloc since i takes the same parameters and does the same as the realloc function.
+allocOnNode takes a node (it dosn't matter if it's free or not), then create one node with the date and
+one node which is free.
+If you therefore give allocOnNode, a node wich contains data it will just resize that node, and create a
+new node with no data.
 
 9) Which function(s) need to know which strategy is being used?  Briefly explain
 why this/these and not others.
+
+mymalloc:
+The "mymalloc" function obvious needs to know which strategy is being used so it can call the correct function.
+Depending on the strategy, different functions are called with different algorithms which determine where the
+the new block of memory should be placed.
+
+initmem
+//Er lidt i tvivl om hvorfor initmem skal bruge en strategi??
+
 
 10) Give one advantage of implementing memory management using a linked list
 over a bit array, where every bit tells whether its corresponding byte is
 allocated.
 
+It's faster to find a free block which matches the size of the block that is needed.
+You don't need to count if there is enough free bits, and therefore it's faster to find where where
+the block of data should be placed.
