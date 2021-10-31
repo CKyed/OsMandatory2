@@ -19,7 +19,7 @@ First:
 It runs quickly since it doesn't need to go through the whole list every time.
 
 Next:
-It runs even quick than first, since it doesn't need to go through the whole list every time,
+It runs even quicker than first, since it doesn't need to go through the whole list every time,
 and because if we allocate a lot of blocks after each other, we don't need to iterate through the
 same allocated blocks each time.
 
@@ -55,7 +55,8 @@ The "Worst" strategy generally has the smallest number in this metric, which is 
 since we want to minimize the number of small blocks.
 
 Why do you think this is?
-This is because we rarely get small "remaining blocks" after splitting a block in two.
+This is because we rarely get small "remaining blocks" after splitting a block in two,
+if we always choose to split the largest block.
 
 
 6) Eventually, the many mallocs and frees produces many small blocks scattered
@@ -64,24 +65,27 @@ not in one place.  It is possible to compact the memory, so all the free blocks
 are moved to one large free block.  How would you implement this in the system
 you have built?
 
-It depends on the size of the blocks that needs to be moved. There has to be some free
-space i memory there the block that should be moved can be temporary stored.
-A example: If the block we want to assign is 16 Mb but the largest space is 12 Mb
-and the largest block we currently have in memory is 12 Mb, it would be possible to move all
-the blocks arround. If the largest block we have en memory is 14 Mb, it would not be possible
-since we have no place to temporary store it.
+We could run through the memory list from head to tail sequentially.
+When we encounter a free block, we switch it with it's "next" block (which is alloced).
+If we make a switch so that two free blocks are next to each other, we merge them.
+This way, we can run through the memory list once, and we don't need a buffer for the
+moved blocks. This is because, we only switch used blocks with free blocks
+(not used blocks with used blocks), so we never overwrite used data.
 
 7) If you did implement memory compaction, what changes would you need to make
 in how such a system is invoked (i.e. from a user's perspective)?
+We could make it invisible to the user, by running the compaction algorithm periodically,
+or by running it every time we got a failed allocation, and then trying to do the allocation again.
+
 
 
 8) How would you use the system you have built to implement realloc?  (Brief
 explanation; no code)
-allocOnNode can be used to realloc since i takes the same parameters and does the same as the realloc function.
-allocOnNode takes a node (it dosn't matter if it's free or not), then create one node with the date and
-one node which is free.
-If you therefore give allocOnNode, a node wich contains data it will just resize that node, and create a
-new node with no data.
+This could be done by simply calling myfree on the old memory and then mymalloc
+with the new requested size.
+If we wish for realloc to copy the content from the old memory into the new memory,
+we could mark the old memory as free (alloc=0) but not acutally free the memory
+until we found our new node, where we could then move it to.
 
 9) Which function(s) need to know which strategy is being used?  Briefly explain
 why this/these and not others.
@@ -91,8 +95,9 @@ The "mymalloc" function obvious needs to know which strategy is being used so it
 Depending on the strategy, different functions are called with different algorithms which determine where the
 the new block of memory should be placed.
 
-initmem
-//Er lidt i tvivl om hvorfor initmem skal bruge en strategi??
+The "myfree" function does not need to know the strategy. There is always just one correct
+node for myfree to find, so the only thing we could optimize is how fast we found this node.
+This was not a part of the assignment, so we have not done it.
 
 
 10) Give one advantage of implementing memory management using a linked list
@@ -100,5 +105,6 @@ over a bit array, where every bit tells whether its corresponding byte is
 allocated.
 
 It's faster to find a free block which matches the size of the block that is needed.
-You don't need to count if there is enough free bits, and therefore it's faster to find where where
+You don't need to count if there is enough free bytes, and therefore it's faster to find where
 the block of data should be placed.
+
